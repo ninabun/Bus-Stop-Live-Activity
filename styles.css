@@ -280,6 +280,7 @@ button:hover,
   padding: 12px;
   color: var(--ink);
   background: linear-gradient(90deg, rgba(75, 215, 255, 0.12), rgba(255, 255, 255, 0.03));
+  text-decoration: none;
   text-align: left;
 }
 
