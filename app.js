@@ -58,6 +58,10 @@ const elements = {
   weatherText: document.querySelector("#weatherText"),
   humidityText: document.querySelector("#humidityText"),
   warningText: document.querySelector("#warningText"),
+  rideLocationText: document.querySelector("#rideLocationText"),
+  rideAvailability: document.querySelector("#rideAvailability"),
+  locateRide: document.querySelector("#locateRide"),
+  openUber: document.querySelector("#openUber"),
   holidayCountdown: document.querySelector("#holidayCountdown"),
   holidayName: document.querySelector("#holidayName"),
   clockText: document.querySelector("#clockText"),
@@ -85,6 +89,7 @@ let routeCatalog = fallbackCatalog;
 let stopCatalog = { kmb: new Map(), ctb: new Map() };
 let routeStopCatalog = { kmb: [], ctb: [] };
 let selectedRoute = null;
+let currentRideLocation = null;
 
 function loadSettings() {
   try {
@@ -592,6 +597,38 @@ function updateHolidayCountdown() {
   elements.holidayName.textContent = nextHoliday.name;
 }
 
+function locateForRide() {
+  if (!navigator.geolocation) {
+    elements.rideLocationText.textContent = "此瀏覽器不支援定位。";
+    return;
+  }
+
+  elements.rideLocationText.textContent = "正在取得目前位置...";
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      currentRideLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      const pickup = encodeURIComponent(JSON.stringify({
+        latitude: currentRideLocation.latitude,
+        longitude: currentRideLocation.longitude,
+        addressLine1: "目前位置",
+        addressLine2: "由公司交通顯示器提供",
+      }));
+      elements.openUber.href = `https://m.uber.com/looking?pickup=${pickup}`;
+      elements.openUber.classList.remove("disabled");
+      elements.rideLocationText.textContent = `上車點已定位：${currentRideLocation.latitude.toFixed(5)}, ${currentRideLocation.longitude.toFixed(5)}`;
+      elements.rideAvailability.textContent = "已準備叫車連結。即時車輛位置需 Uber/的士平台授權後才可顯示。";
+    },
+    () => {
+      elements.rideLocationText.textContent = "未能取得位置，請允許瀏覽器定位或在 Uber 內手動選擇上車點。";
+      elements.rideAvailability.textContent = "定位被拒或暫時不可用。";
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
+  );
+}
+
 function readFormStop() {
   return {
     name: elements.stopNameInput.value.trim() || `站點 ${activeStopIndex + 1}`,
@@ -607,6 +644,7 @@ function wireEvents() {
   elements.globalSearch.addEventListener("input", () => renderRouteResults(elements.globalSearch.value));
   elements.operatorFilter.addEventListener("change", () => renderRouteResults(elements.globalSearch.value));
   elements.refreshCatalog.addEventListener("click", () => loadCatalog(true));
+  elements.locateRide.addEventListener("click", locateForRide);
 
   elements.stopSelect.addEventListener("change", () => {
     activeStopIndex = Number(elements.stopSelect.value);

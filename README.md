@@ -13,6 +13,7 @@ A company-lobby transport display for Hong Kong bus and minibus searches.
 - Display modes: all directions, outbound only, inbound only, company favourites
 - Weather, humidity and active weather warnings from the Hong Kong Observatory
 - Advertisement/company information panel and public holiday countdown
+- Taxi and Uber quick-call panel with browser geolocation pickup support
 - Automatic refresh every 1 minute for configured favourite stops
 
 ## Data Sources
@@ -26,3 +27,5 @@ A company-lobby transport display for Hong Kong bus and minibus searches.
 Open `index.html` in a browser, or publish the repository root through GitHub Pages.
 
 Employees can use the search box directly. Admin users can save company nearby stops in the right panel for the always-on lobby display.
+
+The ride-hailing panel can open Uber with the browser's current location as the pickup point and provides a taxi call shortcut. Live taxi/Uber vehicle positions require official platform API access or a commercial data partnership.
