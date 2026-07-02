@@ -1,15 +1,19 @@
 :root {
-  --bg: #07101d;
-  --panel: rgba(8, 20, 34, 0.86);
-  --panel-solid: #0d1d31;
-  --line: rgba(190, 220, 255, 0.18);
-  --ink: #f4f8ff;
-  --muted: #93a9c2;
-  --bus: #4bd7ff;
-  --minibus: #65f3a6;
-  --taxi: #ffd45d;
-  --hot: #ff6c8c;
-  --shadow: 0 24px 80px rgba(0, 0, 0, 0.42);
+  --bg: #eaf7ff;
+  --panel: rgba(255, 255, 255, 0.72);
+  --panel-solid: #e8f3ff;
+  --line: rgba(35, 74, 130, 0.18);
+  --ink: #12223a;
+  --muted: #5f738b;
+  --bus: #00a7ff;
+  --bus-deep: #006dff;
+  --minibus: #16d884;
+  --minibus-deep: #009b68;
+  --taxi: #ffd13d;
+  --taxi-deep: #ff9f1c;
+  --hot: #ff4f8b;
+  --violet: #8a5cff;
+  --shadow: 0 28px 90px rgba(39, 72, 126, 0.25);
   font-family: "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
 }
 
@@ -22,9 +26,10 @@ body {
   min-height: 100vh;
   color: var(--ink);
   background:
-    radial-gradient(circle at 18% 12%, rgba(75, 215, 255, 0.18), transparent 30%),
-    radial-gradient(circle at 78% 8%, rgba(101, 243, 166, 0.12), transparent 28%),
-    linear-gradient(135deg, #020712 0%, #07101d 54%, #111a22 100%);
+    radial-gradient(circle at 12% 14%, rgba(0, 167, 255, 0.38), transparent 28%),
+    radial-gradient(circle at 84% 10%, rgba(255, 209, 61, 0.36), transparent 26%),
+    radial-gradient(circle at 78% 72%, rgba(22, 216, 132, 0.28), transparent 32%),
+    linear-gradient(135deg, #eef9ff 0%, #dcecff 42%, #f8efff 100%);
 }
 
 button,
@@ -44,10 +49,12 @@ select {
 .kiosk,
 .admin-panel {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 18%), var(--panel);
+  border-radius: 18px;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.58)),
+    var(--panel);
   box-shadow: var(--shadow);
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(22px) saturate(1.25);
 }
 
 .kiosk {
@@ -77,7 +84,7 @@ select {
 .eyebrow,
 .section-label {
   margin: 0 0 6px;
-  color: var(--bus);
+  color: var(--bus-deep);
   font-size: 0.72rem;
   font-weight: 900;
   letter-spacing: 0.14em;
@@ -113,7 +120,7 @@ h1 {
   border-radius: 999px;
   padding: 8px 12px;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.68);
   white-space: nowrap;
 }
 
@@ -133,12 +140,14 @@ h1 {
 .mode-card {
   min-height: 112px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 16px;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.64);
   text-align: left;
   cursor: pointer;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 12px 28px rgba(42, 79, 130, 0.12);
+  transition: transform 120ms ease, box-shadow 120ms ease;
 }
 
 .mode-card span,
@@ -154,23 +163,23 @@ h1 {
 }
 
 .mode-card.active {
-  transform: translateY(-1px);
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.28);
+  transform: translateY(-3px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.95), 0 18px 44px rgba(42, 79, 130, 0.2);
 }
 
 .mode-card.bus.active {
-  border-color: rgba(75, 215, 255, 0.8);
-  background: linear-gradient(135deg, rgba(75, 215, 255, 0.22), rgba(255, 255, 255, 0.045));
+  border-color: rgba(0, 167, 255, 0.65);
+  background: linear-gradient(135deg, rgba(0, 167, 255, 0.28), rgba(255, 255, 255, 0.72));
 }
 
 .mode-card.minibus.active {
-  border-color: rgba(101, 243, 166, 0.8);
-  background: linear-gradient(135deg, rgba(101, 243, 166, 0.2), rgba(255, 255, 255, 0.045));
+  border-color: rgba(22, 216, 132, 0.72);
+  background: linear-gradient(135deg, rgba(22, 216, 132, 0.26), rgba(255, 255, 255, 0.72));
 }
 
 .mode-card.taxi.active {
-  border-color: rgba(255, 212, 93, 0.82);
-  background: linear-gradient(135deg, rgba(255, 212, 93, 0.22), rgba(255, 255, 255, 0.045));
+  border-color: rgba(255, 159, 28, 0.72);
+  background: linear-gradient(135deg, rgba(255, 209, 61, 0.32), rgba(255, 255, 255, 0.72));
 }
 
 .search-strip {
@@ -179,9 +188,9 @@ h1 {
   gap: 12px;
   align-items: end;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 14px;
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.66);
 }
 
 .search-box,
@@ -199,13 +208,13 @@ select {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--ink);
-  background: #071425;
+  background: rgba(255, 255, 255, 0.86);
   padding: 0 12px;
 }
 
 .search-box input {
   min-height: 54px;
-  border-color: rgba(75, 215, 255, 0.42);
+  border-color: rgba(0, 167, 255, 0.48);
   font-size: 1.08rem;
 }
 
@@ -216,7 +225,7 @@ button,
   border-radius: 8px;
   padding: 0 14px;
   color: #06111d;
-  background: var(--bus);
+  background: linear-gradient(180deg, #63d9ff, var(--bus-deep));
   font-weight: 900;
   text-decoration: none;
   cursor: pointer;
@@ -240,8 +249,9 @@ button:hover,
 .ride-panel,
 .countdown-panel {
   border: 1px solid var(--line);
-  border-radius: 10px;
-  background: rgba(8, 20, 34, 0.72);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.62);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
 }
 
 .main-panel {
@@ -276,10 +286,11 @@ button:hover,
   align-items: center;
   min-height: 78px;
   border: 1px solid rgba(190, 220, 255, 0.14);
-  border-radius: 10px;
+  border-radius: 14px;
   padding: 12px;
   color: var(--ink);
-  background: linear-gradient(90deg, rgba(75, 215, 255, 0.12), rgba(255, 255, 255, 0.03));
+  background: linear-gradient(90deg, rgba(0, 167, 255, 0.16), rgba(255, 255, 255, 0.7));
+  box-shadow: 0 10px 26px rgba(37, 91, 150, 0.1);
   text-decoration: none;
   text-align: left;
 }
@@ -287,24 +298,61 @@ button:hover,
 .route-row.minibus,
 .route-result.minibus,
 .minibus-detail {
-  background: linear-gradient(90deg, rgba(101, 243, 166, 0.14), rgba(255, 255, 255, 0.03));
+  background: linear-gradient(90deg, rgba(22, 216, 132, 0.18), rgba(255, 255, 255, 0.72));
 }
 
 .route-no {
   display: grid;
   place-items: center;
-  min-height: 54px;
-  border-radius: 8px;
-  color: #06111d;
-  background: var(--taxi);
+  min-height: 58px;
+  border-radius: 12px;
+  color: #09213f;
+  background: linear-gradient(180deg, #fff3a6 0%, var(--taxi) 54%, var(--taxi-deep) 100%);
+  border: 1px solid rgba(129, 84, 0, 0.22);
   font-size: 1.75rem;
   font-weight: 950;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.85),
+    inset 0 -4px 0 rgba(156, 94, 0, 0.28),
+    0 8px 0 rgba(168, 111, 0, 0.22),
+    0 14px 24px rgba(51, 89, 130, 0.18);
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.65);
+  transition: transform 90ms ease, box-shadow 90ms ease;
+}
+
+.route-result:not(.minibus) .route-no,
+.route-row:not(.minibus) .route-no,
+.stop-result:not(.minibus) .route-no {
+  background: linear-gradient(180deg, #a7ecff 0%, var(--bus) 54%, var(--bus-deep) 100%);
+  border-color: rgba(0, 93, 190, 0.22);
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.82),
+    inset 0 -4px 0 rgba(0, 66, 155, 0.28),
+    0 8px 0 rgba(0, 91, 168, 0.22),
+    0 14px 24px rgba(51, 89, 130, 0.18);
+}
+
+.route-result[href*="uber"] .route-no,
+.route-result[href*="hktaxi"] .route-no {
+  background: linear-gradient(180deg, #fff4a8 0%, var(--taxi) 54%, var(--taxi-deep) 100%);
+  border-color: rgba(129, 84, 0, 0.22);
+}
+
+.route-result:active .route-no,
+.stop-result:active .route-no,
+.nearby-stop:active,
+button:active {
+  transform: translateY(3px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.7),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+    0 4px 0 rgba(55, 80, 120, 0.18);
 }
 
 .route-result.minibus .route-no,
 .route-row.minibus .route-no,
 .minibus-detail .route-no {
-  background: var(--minibus);
+  background: linear-gradient(180deg, #bbffd7 0%, var(--minibus) 54%, var(--minibus-deep) 100%);
 }
 
 .route-result-main,
@@ -335,7 +383,7 @@ button:hover,
 
 .route-action {
   justify-self: end;
-  color: var(--bus);
+  color: var(--bus-deep);
   font-size: 0.9rem;
   font-weight: 900;
   white-space: nowrap;
@@ -359,7 +407,7 @@ button:hover,
   height: 48px;
   border-radius: 999px;
   color: #06111d;
-  background: var(--bus);
+  background: linear-gradient(180deg, #99e7ff, var(--bus));
   font-size: 1.1rem;
   font-weight: 950;
 }
@@ -389,10 +437,11 @@ button:hover,
   gap: 4px;
   min-height: 58px;
   border: 1px solid rgba(190, 220, 255, 0.14);
-  border-radius: 8px;
+  border-radius: 12px;
   padding: 10px 12px;
   color: var(--ink);
-  background: rgba(255, 255, 255, 0.045);
+  background: rgba(255, 255, 255, 0.72);
+  box-shadow: 0 7px 0 rgba(56, 89, 128, 0.12), 0 14px 26px rgba(37, 91, 150, 0.08);
   text-align: left;
 }
 
@@ -420,7 +469,7 @@ button:hover,
 }
 
 .weather-meta span {
-  border-left: 3px solid var(--bus);
+  border-left: 3px solid var(--bus-deep);
   padding-left: 10px;
   color: var(--muted);
 }
@@ -451,7 +500,7 @@ button:hover,
 .ride-link {
   color: var(--ink);
   border: 1px solid var(--line);
-  background: var(--panel-solid);
+  background: linear-gradient(180deg, #ffffff, var(--panel-solid));
 }
 
 .ride-link.disabled {
@@ -498,7 +547,7 @@ button:hover,
   height: 42px;
   border: 1px solid var(--line);
   color: var(--ink);
-  background: var(--panel-solid);
+  background: linear-gradient(180deg, #ffffff, var(--panel-solid));
 }
 
 .settings-body {
@@ -522,7 +571,7 @@ button:hover,
 #deleteStop,
 #demoData {
   color: var(--ink);
-  background: var(--panel-solid);
+  background: linear-gradient(180deg, #ffffff, var(--panel-solid));
   border: 1px solid var(--line);
 }
 
