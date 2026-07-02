@@ -54,6 +54,7 @@ const elements = {
   globalSearch: document.querySelector("#globalSearch"),
   operatorFilter: document.querySelector("#operatorFilter"),
   refreshCatalog: document.querySelector("#refreshCatalog"),
+  nearbyStops: document.querySelector("#nearbyStops"),
   weatherTemp: document.querySelector("#weatherTemp"),
   weatherText: document.querySelector("#weatherText"),
   humidityText: document.querySelector("#humidityText"),
@@ -89,6 +90,7 @@ let routeCatalog = fallbackCatalog;
 let stopCatalog = { kmb: new Map(), ctb: new Map() };
 let routeStopCatalog = { kmb: [], ctb: [] };
 let selectedRoute = null;
+let selectedRouteStops = [];
 let currentRideLocation = null;
 
 function loadSettings() {
@@ -184,14 +186,21 @@ function renderRouteResults(query = "") {
   const operatorFilter = elements.operatorFilter.value;
   let results = routeCatalog.filter((route) => operatorFilter === "all" || route.operatorKey === operatorFilter);
 
+  selectedRoute = null;
+  selectedRouteStops = [];
+  renderNearbyStops([], "先搜尋路線，然後選擇一條路線查看站點。");
+
   if (normalizedQuery) {
     results = results.filter((route) => {
       const searchText = normalize(`${route.route} ${route.operator} ${route.origin} ${route.destination}`);
       return searchText.includes(normalizedQuery);
     });
   } else {
-    const favourites = new Set(getActiveStop().routes.map((route) => route.toUpperCase()));
-    results = results.filter((route) => favourites.has(String(route.route).toUpperCase()));
+    elements.activeStopName.textContent = "搜尋巴士、小巴路線";
+    elements.directionLabel.textContent = "請先輸入路線";
+    elements.boardSubtitle.textContent = "例如輸入 270A、101、旺角、觀塘，再選擇路線和站點。";
+    elements.routeList.innerHTML = emptyRow("請先搜尋", "輸入路線號碼、目的地或地區，系統會顯示可選路線。");
+    return;
   }
 
   elements.activeStopName.textContent = query ? `搜尋：${query}` : "公司常用路線";
@@ -233,6 +242,8 @@ async function openRouteStops(route) {
   elements.routeList.innerHTML = emptyRow("載入站點中", "正在讀取路線站點資料。");
 
   if (route.operatorKey === "gmb") {
+    selectedRouteStops = [];
+    renderNearbyStops([], "綠色小巴暫時未有完整站點距離資料。");
     elements.routeList.innerHTML = `
       ${renderEtaRow({
         route: route.route,
@@ -251,18 +262,21 @@ async function openRouteStops(route) {
 
   try {
     const stops = await fetchRouteStops(route);
+    selectedRouteStops = orderStopsByLocation(stops);
     if (!stops.length) {
       elements.routeList.innerHTML = emptyRow("未有站點資料", "請嘗試另一方向或另一條路線。");
       return;
     }
 
-    elements.routeList.innerHTML = stops
+    renderNearbyStops(selectedRouteStops, currentRideLocation ? "已按目前位置排序。" : "按定位後可把最近站排前。");
+
+    elements.routeList.innerHTML = selectedRouteStops
       .map((stop) => `
         <button class="stop-result" type="button" data-stop-id="${escapeHtml(stop.stopId)}">
           <span class="stop-seq">${escapeHtml(stop.seq)}</span>
           <span>
             <strong>${escapeHtml(stop.name || stop.stopId)}</strong>
-            <small>${escapeHtml(route.route)} · ${escapeHtml(route.operator)} · ${escapeHtml(stop.stopId)}</small>
+            <small>${escapeHtml(route.route)} · ${escapeHtml(route.operator)}${stop.distanceText ? ` · ${escapeHtml(stop.distanceText)}` : ""}</small>
           </span>
           <span class="route-action">查 ETA</span>
         </button>
@@ -272,7 +286,7 @@ async function openRouteStops(route) {
     [...elements.routeList.querySelectorAll("[data-stop-id]")].forEach((button) => {
       button.addEventListener("click", async () => {
         const stopId = button.dataset.stopId;
-        const stop = stops.find((item) => item.stopId === stopId);
+        const stop = selectedRouteStops.find((item) => item.stopId === stopId);
         await showRouteStopEta(route, stop);
       });
     });
@@ -390,10 +404,12 @@ function groupEta(items, operator, operatorKey, fallbackRoute) {
 
 async function loadCatalog(force = false) {
   elements.refreshStatus.textContent = "載入路線庫";
+  elements.routeList.innerHTML = emptyRow("載入路線庫中", "請稍候，正在更新九巴及城巴路線資料。");
   const cached = getCatalogCache();
   if (!force && cached) {
     applyCatalog(cached);
     setNetworkState(true, "路線庫已載入");
+    elements.refreshStatus.textContent = "路線庫已載入";
     renderRouteResults(elements.globalSearch.value);
     return;
   }
@@ -521,12 +537,68 @@ async function fetchRouteStops(route) {
 
   return routeStops.map((item) => {
     const stop = stopCatalog[route.operatorKey].get(item.stop) || {};
+    const latitude = Number(stop.lat || stop.latitude);
+    const longitude = Number(stop.long || stop.lng || stop.longitude);
     return {
       seq: item.seq,
       stopId: item.stop,
       name: stop.name_tc || stop.name_en || item.stop,
+      latitude: Number.isFinite(latitude) ? latitude : null,
+      longitude: Number.isFinite(longitude) ? longitude : null,
     };
   });
+}
+
+function orderStopsByLocation(stops) {
+  if (!currentRideLocation) return stops;
+  return stops
+    .map((stop) => {
+      if (stop.latitude == null || stop.longitude == null) return stop;
+      const distance = distanceInMeters(currentRideLocation.latitude, currentRideLocation.longitude, stop.latitude, stop.longitude);
+      return {
+        ...stop,
+        distance,
+        distanceText: distance < 1000 ? `${Math.round(distance)} 米` : `${(distance / 1000).toFixed(1)} 公里`,
+      };
+    })
+    .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
+}
+
+function renderNearbyStops(stops, message) {
+  if (!elements.nearbyStops) return;
+  if (!stops.length) {
+    elements.nearbyStops.innerHTML = `<p class="hint">${escapeHtml(message)}</p>`;
+    return;
+  }
+
+  elements.nearbyStops.innerHTML = `
+    <p class="hint">${escapeHtml(message)}</p>
+    <div class="nearby-list">
+      ${stops.slice(0, 6).map((stop) => `
+        <button class="nearby-stop" type="button" data-nearby-stop-id="${escapeHtml(stop.stopId)}">
+          <strong>${escapeHtml(stop.name || stop.stopId)}</strong>
+          <span>${escapeHtml(selectedRoute?.route || "")}${stop.distanceText ? ` · ${escapeHtml(stop.distanceText)}` : ""}</span>
+        </button>
+      `).join("")}
+    </div>
+  `;
+
+  [...elements.nearbyStops.querySelectorAll("[data-nearby-stop-id]")].forEach((button) => {
+    button.addEventListener("click", async () => {
+      const stop = selectedRouteStops.find((item) => item.stopId === button.dataset.nearbyStopId);
+      if (selectedRoute && stop) await showRouteStopEta(selectedRoute, stop);
+    });
+  });
+}
+
+function distanceInMeters(lat1, lon1, lat2, lon2) {
+  const toRad = (value) => value * Math.PI / 180;
+  const earthRadius = 6371000;
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat / 2) ** 2
+    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+  return earthRadius * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
 function routeStopDirectionMatches(item, route) {
@@ -620,6 +692,9 @@ function locateForRide() {
       elements.openUber.classList.remove("disabled");
       elements.rideLocationText.textContent = `上車點已定位：${currentRideLocation.latitude.toFixed(5)}, ${currentRideLocation.longitude.toFixed(5)}`;
       elements.rideAvailability.textContent = "已準備叫車連結。即時車輛位置需 Uber/的士平台授權後才可顯示。";
+      if (selectedRoute) {
+        openRouteStops(selectedRoute);
+      }
     },
     () => {
       elements.rideLocationText.textContent = "未能取得位置，請允許瀏覽器定位或在 Uber 內手動選擇上車點。";
@@ -720,7 +795,7 @@ function init() {
   renderStopOptions();
   fillStopForm();
   wireEvents();
-  renderRows(latestRows, getActiveStop().name || "公司常用站點");
+  renderRouteResults("");
   updateClock();
   updateHolidayCountdown();
   loadCatalog();

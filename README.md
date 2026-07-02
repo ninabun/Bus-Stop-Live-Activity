@@ -8,6 +8,7 @@ A company-lobby transport display for Hong Kong bus and minibus searches.
 - Green minibus search placeholder and UI support
 - Route result view: route number, operator, origin and destination
 - Stop selection view for supported bus routes
+- Nearby-stop panel that can sort selected route stops by browser location
 - Real-time ETA lookup after selecting a stop
 - Up to 10 company favourite stops for lobby display
 - Display modes: all directions, outbound only, inbound only, company favourites

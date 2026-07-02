@@ -68,15 +68,6 @@
                 </div>
               </article>
 
-              <article class="ad-panel">
-                <p class="section-label">公司資訊 / 廣告</p>
-                <div class="ad-visual">
-                  <span>LIVE</span>
-                  <strong>出門前，先睇下一班</strong>
-                </div>
-                <p id="adCopy">支援九巴、城巴及綠色小巴搜尋；固定站點可每分鐘自動刷新。</p>
-              </article>
-
               <article class="ride-panel">
                 <p class="section-label">叫車</p>
                 <h2>的士 / Uber</h2>
@@ -86,7 +77,7 @@
                   <a id="openUber" class="ride-link disabled" href="https://m.uber.com/looking?pickup=my_location" target="_blank" rel="noopener">開 Uber</a>
                   <a class="ride-link" href="tel:85227608777">電召的士</a>
                 </div>
-                <p class="fineprint" id="rideAvailability">附近車輛位置需要平台官方 API 或商業授權。</p>
+                <p class="fineprint" id="rideAvailability">定位後可開 Uber；即時車輛位置需要平台官方 API 或商業授權。</p>
               </article>
 
               <article class="countdown-panel">
@@ -105,16 +96,21 @@
         </div>
       </section>
 
-      <aside class="control-panel" aria-label="公司固定站點設定">
+      <aside class="control-panel" aria-label="附近站點">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">ADMIN</p>
-            <h2>公司常用站點</h2>
+            <p class="eyebrow">NEARBY</p>
+            <h2>附近站點</h2>
           </div>
-          <button class="icon-button" id="toggleSettings" type="button" aria-label="收合設定">⚙</button>
+          <button class="icon-button" id="toggleSettings" type="button" aria-label="收合進階設定">⚙</button>
         </div>
 
-        <div class="settings-body" id="settingsBody">
+        <div class="nearby-body" id="nearbyStops">
+          <p class="hint">先搜尋路線，例如 270A。選擇路線後，這裡會顯示該路線站點；定位後會優先顯示最近的站。</p>
+        </div>
+
+        <div class="settings-body is-collapsed" id="settingsBody">
+          <p class="section-label">進階固定站點</p>
           <label class="field">
             <span>目前站點</span>
             <select id="stopSelect"></select>
