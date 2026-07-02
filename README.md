@@ -1,25 +1,28 @@
 # Bus Stop Live Activity
 
-1/12 scale Hong Kong smart bus stop display inspired by real departure screens.
+A company-lobby transport display for Hong Kong bus and minibus searches.
 
 ## Features
 
-- Real-time departure board layout for KMB, Citybus and mixed-stop routes
-- Up to 10 configurable bus stops saved in the browser
-- Display modes: all directions, outbound only, inbound only, selected routes only
+- Full route search for KMB/LWB and Citybus route catalogues
+- Green minibus search placeholder and UI support
+- Route result view: route number, operator, origin and destination
+- Stop selection view for supported bus routes
+- Real-time ETA lookup after selecting a stop
+- Up to 10 company favourite stops for lobby display
+- Display modes: all directions, outbound only, inbound only, company favourites
 - Weather, humidity and active weather warnings from the Hong Kong Observatory
-- Advertisement panel and next public holiday countdown
-- Automatic refresh every 1 minute after WiFi/network connection
-- Demo mode when stop IDs are not configured
+- Advertisement/company information panel and public holiday countdown
+- Automatic refresh every 1 minute for configured favourite stops
 
 ## Data Sources
 
-- KMB ETA: `https://data.etabus.gov.hk`
-- Citybus ETA: `https://rt.data.gov.hk`
-- Hong Kong Observatory: `https://data.weather.gov.hk`
+- KMB/LWB route, stop and ETA data: `https://data.etabus.gov.hk`
+- Citybus route, stop and ETA data: `https://rt.data.gov.hk`
+- Hong Kong Observatory weather and warning data: `https://data.weather.gov.hk`
 
 ## Use
 
-Open `index.html` in a browser. Add station IDs and route numbers in the settings panel, then press `儲存站點` or `立即更新`.
+Open `index.html` in a browser, or publish the repository root through GitHub Pages.
 
-For GitHub Pages, publish the repository root and set Pages to serve from the main branch.
+Employees can use the search box directly. Admin users can save company nearby stops in the right panel for the always-on lobby display.

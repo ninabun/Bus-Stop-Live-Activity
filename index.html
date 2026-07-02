@@ -4,37 +4,52 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#07111f">
-    <meta name="description" content="1/12 real-time Hong Kong bus stop departure display with weather, adverts and station settings.">
-    <title>巴士站班次顯示器</title>
+    <meta name="description" content="公司大堂用全港巴士、小巴實時班次搜尋顯示器。">
+    <title>全港交通班次顯示器</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
     <main class="kiosk-shell">
-      <section class="display-frame" aria-label="巴士站班次顯示器">
+      <section class="display-frame" aria-label="全港交通班次顯示器">
         <div class="display-glass">
           <header class="display-top">
             <div>
-              <p class="eyebrow">1/12 SCALE SMART BUS STOP</p>
-              <h1 id="activeStopName">巴士站班次顯示器</h1>
+              <p class="eyebrow">COMPANY TRANSPORT LIVE BOARD</p>
+              <h1 id="activeStopName">全港巴士及小巴班次</h1>
+              <p class="subtitle" id="boardSubtitle">搜尋路線、目的地或站名，即時查看下一班車。</p>
             </div>
             <div class="status-cluster">
-              <span class="status-pill online" id="networkStatus">WiFi 已連線</span>
+              <span class="status-pill online" id="networkStatus">資料連線中</span>
               <span class="status-pill" id="refreshStatus">每 1 分鐘更新</span>
             </div>
           </header>
+
+          <section class="search-strip" aria-label="路線搜尋">
+            <label class="search-box">
+              <span>搜尋</span>
+              <input id="globalSearch" autocomplete="off" placeholder="輸入 1、101、旺角、觀塘、小巴 56K...">
+            </label>
+            <select id="operatorFilter" aria-label="交通類型">
+              <option value="all">全部：九巴 / 城巴 / 小巴</option>
+              <option value="kmb">九巴 / 龍運</option>
+              <option value="ctb">城巴</option>
+              <option value="gmb">綠色小巴</option>
+            </select>
+            <button id="refreshCatalog" type="button">更新路線庫</button>
+          </section>
 
           <section class="hero-grid">
             <article class="departure-board">
               <div class="board-toolbar">
                 <div>
-                  <p class="section-label">實時班次</p>
-                  <strong id="directionLabel">全部方向</strong>
+                  <p class="section-label">搜尋結果 / 實時班次</p>
+                  <strong id="directionLabel">未選路線</strong>
                 </div>
                 <select id="displayMode" aria-label="顯示模式">
                   <option value="all">所有方向</option>
                   <option value="outbound">只顯示去程</option>
                   <option value="inbound">只顯示回程</option>
-                  <option value="favourites">只顯示已選路線</option>
+                  <option value="favourites">公司常用路線</option>
                 </select>
               </div>
               <div class="route-list" id="routeList" aria-live="polite"></div>
@@ -43,7 +58,7 @@
             <aside class="side-stack">
               <article class="weather-panel">
                 <div>
-                  <p class="section-label">天氣</p>
+                  <p class="section-label">天氣及警告</p>
                   <h2 id="weatherTemp">--°C</h2>
                   <p id="weatherText">連接天文台中</p>
                 </div>
@@ -54,16 +69,16 @@
               </article>
 
               <article class="ad-panel">
-                <p class="section-label">廣告</p>
+                <p class="section-label">公司資訊 / 廣告</p>
                 <div class="ad-visual">
-                  <span>HK</span>
-                  <strong>下一站，準時生活</strong>
+                  <span>LIVE</span>
+                  <strong>出門前，先睇下一班</strong>
                 </div>
-                <p id="adCopy">智能站牌、實時班次、天氣警告同步顯示。</p>
+                <p id="adCopy">支援九巴、城巴及綠色小巴搜尋；固定站點可每分鐘自動刷新。</p>
               </article>
 
               <article class="countdown-panel">
-                <p class="section-label">節日倒數</p>
+                <p class="section-label">節日假期倒數</p>
                 <h2 id="holidayCountdown">-- 日</h2>
                 <p id="holidayName">計算下一個公眾假期</p>
               </article>
@@ -73,16 +88,16 @@
           <footer class="display-footer">
             <span id="clockText">--:--:--</span>
             <span id="lastUpdated">最後更新：--</span>
-            <span>資料：九巴 / 城巴 / 香港天文台</span>
+            <span>資料：DATA.GOV.HK / 九巴 / 城巴 / 天文台</span>
           </footer>
         </div>
       </section>
 
-      <aside class="control-panel" aria-label="設定">
+      <aside class="control-panel" aria-label="公司固定站點設定">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">CONTROL</p>
-            <h2>站點設定</h2>
+            <p class="eyebrow">ADMIN</p>
+            <h2>公司常用站點</h2>
           </div>
           <button class="icon-button" id="toggleSettings" type="button" aria-label="收合設定">⚙</button>
         </div>
@@ -95,22 +110,23 @@
 
           <div class="field-row">
             <label class="field">
-              <span>名稱</span>
-              <input id="stopNameInput" maxlength="28" placeholder="例如：旺角站">
+              <span>顯示名稱</span>
+              <input id="stopNameInput" maxlength="28" placeholder="例如：公司樓下">
             </label>
             <label class="field">
               <span>營辦商</span>
               <select id="operatorInput">
-                <option value="kmb">九巴</option>
-                <option value="ctb">城巴</option>
                 <option value="mixed">九巴 + 城巴</option>
+                <option value="kmb">九巴 / 龍運</option>
+                <option value="ctb">城巴</option>
+                <option value="gmb">綠色小巴</option>
               </select>
             </label>
           </div>
 
           <label class="field">
-            <span>九巴站點 ID</span>
-            <input id="kmbStopInput" placeholder="KMB stop id">
+            <span>九巴 / 龍運站點 ID</span>
+            <input id="kmbStopInput" placeholder="例如 18492910339410B1">
           </label>
 
           <label class="field">
@@ -119,8 +135,13 @@
           </label>
 
           <label class="field">
-            <span>顯示路線，以逗號分隔</span>
-            <input id="routesInput" placeholder="1, 6, 101, 970X">
+            <span>綠色小巴站點 / 備註</span>
+            <input id="gmbStopInput" placeholder="可填小巴站名或日後 API stop id">
+          </label>
+
+          <label class="field">
+            <span>公司常用路線，以逗號分隔</span>
+            <input id="routesInput" placeholder="1, 6, 101, 970X, 56K">
           </label>
 
           <div class="button-row">
@@ -134,7 +155,7 @@
             <button id="demoData" type="button">示範資料</button>
           </div>
 
-          <p class="hint">最多可儲存十個巴士站。填入真實站點 ID 後，系統會每分鐘嘗試更新班次。</p>
+          <p class="hint">一般員工只需要用上方搜尋。管理員可在這裡儲存最多十個公司附近站點，用作大堂常駐顯示。</p>
         </div>
       </aside>
     </main>
