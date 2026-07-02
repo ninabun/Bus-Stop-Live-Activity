@@ -51,6 +51,9 @@ const elements = {
   routeList: document.querySelector("#routeList"),
   displayMode: document.querySelector("#displayMode"),
   directionLabel: document.querySelector("#directionLabel"),
+  mainSectionLabel: document.querySelector("#mainSectionLabel"),
+  searchLabel: document.querySelector("#searchLabel"),
+  sideSectionLabel: document.querySelector("#sideSectionLabel"),
   globalSearch: document.querySelector("#globalSearch"),
   operatorFilter: document.querySelector("#operatorFilter"),
   refreshCatalog: document.querySelector("#refreshCatalog"),
@@ -81,17 +84,20 @@ const elements = {
   demoData: document.querySelector("#demoData"),
   toggleSettings: document.querySelector("#toggleSettings"),
   settingsBody: document.querySelector("#settingsBody"),
+  modeButtons: [...document.querySelectorAll(".mode-card")],
 };
 
 let settings = loadSettings();
 let activeStopIndex = 0;
 let latestRows = demoRows;
 let routeCatalog = fallbackCatalog;
+let minibusCatalog = fallbackCatalog.filter((route) => route.operatorKey === "gmb");
 let stopCatalog = { kmb: new Map(), ctb: new Map() };
 let routeStopCatalog = { kmb: [], ctb: [] };
 let selectedRoute = null;
 let selectedRouteStops = [];
 let currentRideLocation = null;
+let activeMode = "bus";
 
 function loadSettings() {
   try {
@@ -182,6 +188,16 @@ function renderEtaRow(row) {
 }
 
 function renderRouteResults(query = "") {
+  if (activeMode === "minibus") {
+    renderMinibusResults(query);
+    return;
+  }
+
+  if (activeMode === "taxi") {
+    renderTaxiPanel();
+    return;
+  }
+
   const normalizedQuery = normalize(query);
   const operatorFilter = elements.operatorFilter.value;
   let results = routeCatalog.filter((route) => operatorFilter === "all" || route.operatorKey === operatorFilter);
@@ -196,10 +212,10 @@ function renderRouteResults(query = "") {
       return searchText.includes(normalizedQuery);
     });
   } else {
-    elements.activeStopName.textContent = "搜尋巴士、小巴路線";
+    elements.activeStopName.textContent = "巴士路線搜尋";
     elements.directionLabel.textContent = "請先輸入路線";
-    elements.boardSubtitle.textContent = "例如輸入 270A、101、旺角、觀塘，再選擇路線和站點。";
-    elements.routeList.innerHTML = emptyRow("請先搜尋", "輸入路線號碼、目的地或地區，系統會顯示可選路線。");
+    elements.boardSubtitle.textContent = "包括九巴、龍運及城巴全港路線；輸入路線號碼、目的地或地區即可搜尋。";
+    elements.routeList.innerHTML = emptyRow("請先搜尋巴士", "例如 270A、101、尖沙咀、觀塘。");
     return;
   }
 
@@ -208,7 +224,7 @@ function renderRouteResults(query = "") {
   elements.boardSubtitle.textContent = "點選一條路線後，系統會列出站點；再點選站點即可查到站時間。";
 
   if (!results.length) {
-    elements.routeList.innerHTML = emptyRow("找不到路線", "試下輸入路線號碼、目的地、地區或小巴路線。");
+    elements.routeList.innerHTML = emptyRow("找不到巴士路線", "請檢查路線號碼、目的地或營辦商篩選。");
     return;
   }
 
@@ -232,6 +248,151 @@ function renderRouteResults(query = "") {
       openRouteStops(result);
     });
   });
+}
+
+function renderMinibusResults(query = "") {
+  const normalizedQuery = normalize(query);
+  selectedRoute = null;
+  selectedRouteStops = [];
+  renderNearbyStops([], "小巴模式會顯示綠色小巴路線及方向資訊。");
+
+  let results = minibusCatalog;
+  if (normalizedQuery) {
+    results = results.filter((route) => {
+      const searchText = normalize(`${route.route} ${route.regionLabel} ${route.origin || ""} ${route.destination || ""}`);
+      return searchText.includes(normalizedQuery);
+    });
+  } else {
+    elements.activeStopName.textContent = "綠色小巴搜尋";
+    elements.directionLabel.textContent = "請先輸入小巴路線";
+    elements.boardSubtitle.textContent = "小巴已獨立成一區；輸入 56K、1、58 或地區代碼搜尋。";
+    elements.routeList.innerHTML = emptyRow("請先搜尋小巴", "例如 56K、1、58。");
+    return;
+  }
+
+  elements.activeStopName.textContent = `小巴搜尋：${query}`;
+  elements.directionLabel.textContent = `${results.length} 個小巴結果`;
+  elements.boardSubtitle.textContent = "選擇小巴路線後，顯示方向及班次資訊。";
+
+  if (!results.length) {
+    elements.routeList.innerHTML = emptyRow("找不到小巴路線", "請輸入小巴路線號碼，例如 56K、1、58。");
+    return;
+  }
+
+  elements.routeList.innerHTML = results
+    .slice(0, 80)
+    .map((route, index) => `
+      <button class="route-result minibus" type="button" data-minibus-index="${index}">
+        <span class="route-no">${escapeHtml(route.route)}</span>
+        <span class="route-result-main">
+          <strong>${escapeHtml(route.regionLabel || "綠色小巴")}</strong>
+          <small>${escapeHtml(route.operator)} · ${escapeHtml(route.region || "")}</small>
+        </span>
+        <span class="route-action">查看班次</span>
+      </button>
+    `)
+    .join("");
+
+  [...elements.routeList.querySelectorAll("[data-minibus-index]")].forEach((button) => {
+    button.addEventListener("click", () => {
+      const result = results[Number(button.dataset.minibusIndex)];
+      openMinibusRoute(result);
+    });
+  });
+}
+
+async function openMinibusRoute(route) {
+  elements.activeStopName.textContent = `綠色小巴 ${route.route}`;
+  elements.directionLabel.textContent = route.regionLabel || "綠色小巴";
+  elements.boardSubtitle.textContent = "顯示綠色小巴方向、起點、終點及班次資訊。";
+  elements.routeList.innerHTML = emptyRow("載入小巴資料中", "正在讀取綠色小巴公開資料。");
+
+  try {
+    const payload = await fetchJson(`https://data.etagmb.gov.hk/route/${encodeURIComponent(route.region)}/${encodeURIComponent(route.route)}`);
+    const variants = payload.data || [];
+    if (!variants.length) {
+      elements.routeList.innerHTML = emptyRow("未有小巴詳情", "公開資料暫時沒有這條小巴路線的詳細班次。");
+      return;
+    }
+
+    const rows = variants.flatMap((variant) => (variant.directions || []).map((direction) => ({
+      route: variant.route_code,
+      region: variant.region,
+      description: variant.description_tc || variant.description_en || "正常班次",
+      origin: direction.orig_tc || direction.orig_en || "起點待更新",
+      destination: direction.dest_tc || direction.dest_en || "終點待更新",
+      remarks: direction.remarks_tc || direction.remarks_en || "",
+      headway: summarizeHeadway(direction.headways || []),
+    })));
+
+    elements.routeList.innerHTML = rows.map((row) => `
+      <article class="minibus-detail">
+        <span class="route-no">${escapeHtml(row.route)}</span>
+        <span class="route-result-main">
+          <strong>${escapeHtml(row.destination)}</strong>
+          <small>${escapeHtml(row.origin)} → ${escapeHtml(row.destination)}${row.remarks ? ` · ${escapeHtml(row.remarks)}` : ""}</small>
+        </span>
+        <span class="eta-list">
+          <strong>${escapeHtml(row.headway)}</strong>
+          <span>${escapeHtml(row.description)}</span>
+        </span>
+      </article>
+    `).join("");
+  } catch {
+    elements.routeList.innerHTML = emptyRow("小巴資料載入失敗", "請稍後再試，或檢查網絡連線。");
+  }
+}
+
+function renderTaxiPanel() {
+  selectedRoute = null;
+  selectedRouteStops = [];
+  elements.activeStopName.textContent = "的士 / Uber";
+  elements.directionLabel.textContent = "定位後叫車";
+  elements.boardSubtitle.textContent = "取得目前位置後，可直接開 Uber 或電召的士。";
+  renderNearbyStops([], "叫車模式不需要選巴士站；按定位建立上車點。");
+  elements.routeList.innerHTML = `
+    <article class="route-row">
+      <span class="route-no">GPS</span>
+      <span class="route-dest">
+        <strong>定位目前位置</strong>
+        <span>${escapeHtml(elements.rideLocationText.textContent || "按定位後建立上車點")}</span>
+      </span>
+      <span class="eta-list">
+        <strong>上車點</strong>
+        <span>Uber / 的士</span>
+      </span>
+    </article>
+    <article class="route-row">
+      <span class="route-no">UBER</span>
+      <span class="route-dest">
+        <strong>開啟 Uber</strong>
+        <span>用目前位置作上車點；未定位時可在 Uber 內選擇。</span>
+      </span>
+      <span class="eta-list">
+        <strong>即時</strong>
+        <span>外部 app</span>
+      </span>
+    </article>
+    <article class="route-row">
+      <span class="route-no">TAXI</span>
+      <span class="route-dest">
+        <strong>電召的士</strong>
+        <span>按右邊「電召的士」直接撥號。</span>
+      </span>
+      <span class="eta-list">
+        <strong>電話</strong>
+        <span>call taxi</span>
+      </span>
+    </article>
+  `;
+}
+
+function summarizeHeadway(headways) {
+  const item = headways.find((headway) => headway.frequency || headway.headway_seq === 1) || headways[0];
+  if (!item) return "班次待定";
+  if (item.frequency) return `${item.frequency} 分鐘`;
+  if (item.start_time && item.end_time) return `${item.start_time}-${item.end_time}`;
+  return "班次資訊";
 }
 
 async function openRouteStops(route) {
@@ -415,21 +576,22 @@ async function loadCatalog(force = false) {
   }
 
   try {
-    const [kmbRoutes, kmbStops, kmbRouteStops, ctbRoutes, ctbStops, ctbRouteStops] = await Promise.all([
+    const [kmbRoutes, kmbStops, kmbRouteStops, ctbRoutes, ctbStops, ctbRouteStops, gmbRoutes] = await Promise.all([
       fetchJson("https://data.etabus.gov.hk/v1/transport/kmb/route/"),
       fetchJson("https://data.etabus.gov.hk/v1/transport/kmb/stop"),
       fetchJson("https://data.etabus.gov.hk/v1/transport/kmb/route-stop"),
       fetchJson("https://rt.data.gov.hk/v2/transport/citybus/route/CTB"),
       fetchJson("https://rt.data.gov.hk/v2/transport/citybus/stop/CTB"),
       Promise.resolve({ data: [] }),
+      fetchJson("https://data.etagmb.gov.hk/route"),
     ].map((request) => request.catch(() => ({ data: [] }))));
 
     const catalog = {
       routes: [
         ...normalizeKmbRoutes(kmbRoutes.data || []),
         ...normalizeCitybusRoutes(ctbRoutes.data || []),
-        ...fallbackCatalog.filter((route) => route.operatorKey === "gmb"),
       ],
+      minibuses: normalizeMinibusRoutes(gmbRoutes.data?.routes || {}),
       stops: {
         kmb: kmbStops.data || [],
         ctb: ctbStops.data || [],
@@ -464,7 +626,8 @@ function getCatalogCache() {
 }
 
 function applyCatalog(catalog) {
-  routeCatalog = catalog.routes?.length ? catalog.routes : fallbackCatalog;
+  routeCatalog = catalog.routes?.length ? catalog.routes : fallbackCatalog.filter((route) => route.operatorKey !== "gmb");
+  minibusCatalog = catalog.minibuses?.length ? catalog.minibuses : fallbackCatalog.filter((route) => route.operatorKey === "gmb");
   stopCatalog = {
     kmb: new Map((catalog.stops?.kmb || []).map((stop) => [stop.stop, stop])),
     ctb: new Map((catalog.stops?.ctb || []).map((stop) => [stop.stop, stop])),
@@ -521,6 +684,25 @@ function normalizeCitybusRoutes(routes) {
       },
     ];
   });
+}
+
+function normalizeMinibusRoutes(routesByRegion) {
+  const labels = {
+    HKI: "港島小巴",
+    KLN: "九龍小巴",
+    NT: "新界小巴",
+  };
+  return Object.entries(routesByRegion).flatMap(([region, routes]) => (
+    (routes || []).map((route) => ({
+      operatorKey: "gmb",
+      operator: "綠色小巴",
+      region,
+      regionLabel: labels[region] || region,
+      route,
+      direction: "outbound",
+      serviceType: "gmb",
+    }))
+  ));
 }
 
 async function fetchRouteStops(route) {
@@ -692,6 +874,9 @@ function locateForRide() {
       elements.openUber.classList.remove("disabled");
       elements.rideLocationText.textContent = `上車點已定位：${currentRideLocation.latitude.toFixed(5)}, ${currentRideLocation.longitude.toFixed(5)}`;
       elements.rideAvailability.textContent = "已準備叫車連結。即時車輛位置需 Uber/的士平台授權後才可顯示。";
+      if (activeMode === "taxi") {
+        renderTaxiPanel();
+      }
       if (selectedRoute) {
         openRouteStops(selectedRoute);
       }
@@ -715,7 +900,55 @@ function readFormStop() {
   };
 }
 
+function setMode(mode) {
+  activeMode = mode;
+  selectedRoute = null;
+  selectedRouteStops = [];
+
+  elements.modeButtons.forEach((button) => {
+    button.classList.toggle("active", button.dataset.mode === mode);
+  });
+
+  if (mode === "bus") {
+    elements.mainSectionLabel.textContent = "巴士搜尋";
+    elements.searchLabel.textContent = "搜尋巴士路線";
+    elements.sideSectionLabel.textContent = "附近巴士站";
+    elements.globalSearch.placeholder = "輸入 270A、101、尖沙咀、觀塘...";
+    elements.operatorFilter.innerHTML = `
+      <option value="all">全部巴士</option>
+      <option value="kmb">九巴 / 龍運</option>
+      <option value="ctb">城巴</option>
+    `;
+    elements.displayMode.disabled = false;
+  }
+
+  if (mode === "minibus") {
+    elements.mainSectionLabel.textContent = "小巴搜尋";
+    elements.searchLabel.textContent = "搜尋綠色小巴";
+    elements.sideSectionLabel.textContent = "小巴資訊";
+    elements.globalSearch.placeholder = "輸入 56K、1、58...";
+    elements.operatorFilter.innerHTML = `<option value="gmb">綠色小巴</option>`;
+    elements.displayMode.disabled = true;
+  }
+
+  if (mode === "taxi") {
+    elements.mainSectionLabel.textContent = "叫車";
+    elements.searchLabel.textContent = "叫車不需要搜尋";
+    elements.sideSectionLabel.textContent = "上車點";
+    elements.globalSearch.placeholder = "按定位建立上車點";
+    elements.operatorFilter.innerHTML = `<option value="taxi">的士 / Uber</option>`;
+    elements.displayMode.disabled = true;
+  }
+
+  elements.globalSearch.value = "";
+  renderRouteResults("");
+}
+
 function wireEvents() {
+  elements.modeButtons.forEach((button) => {
+    button.addEventListener("click", () => setMode(button.dataset.mode));
+  });
+
   elements.globalSearch.addEventListener("input", () => renderRouteResults(elements.globalSearch.value));
   elements.operatorFilter.addEventListener("change", () => renderRouteResults(elements.globalSearch.value));
   elements.refreshCatalog.addEventListener("click", () => loadCatalog(true));
@@ -795,7 +1028,7 @@ function init() {
   renderStopOptions();
   fillStopForm();
   wireEvents();
-  renderRouteResults("");
+  setMode("bus");
   updateClock();
   updateHolidayCountdown();
   loadCatalog();

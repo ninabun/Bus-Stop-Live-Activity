@@ -3,114 +3,131 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="theme-color" content="#07111f">
-    <meta name="description" content="公司大堂用全港巴士、小巴實時班次搜尋顯示器。">
-    <title>全港交通班次顯示器</title>
+    <meta name="theme-color" content="#06101f">
+    <meta name="description" content="全港巴士、小巴及叫車資訊顯示器，適合 iPad、公司大堂及公共 display 使用。">
+    <title>全港交通資訊台</title>
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="kiosk-shell">
-      <section class="display-frame" aria-label="全港交通班次顯示器">
-        <div class="display-glass">
-          <header class="display-top">
-            <div>
-              <p class="eyebrow">COMPANY TRANSPORT LIVE BOARD</p>
-              <h1 id="activeStopName">全港巴士及小巴班次</h1>
-              <p class="subtitle" id="boardSubtitle">搜尋路線、目的地或站名，即時查看下一班車。</p>
-            </div>
-            <div class="status-cluster">
-              <span class="status-pill online" id="networkStatus">資料連線中</span>
-              <span class="status-pill" id="refreshStatus">每 1 分鐘更新</span>
-            </div>
-          </header>
+    <main class="app-shell">
+      <section class="kiosk">
+        <header class="topbar">
+          <div>
+            <p class="eyebrow">HONG KONG LIVE MOBILITY BOARD</p>
+            <h1 id="activeStopName">全港交通資訊台</h1>
+            <p class="subtitle" id="boardSubtitle">選擇巴士、小巴或叫車，一個畫面完成搜尋、定位及出發。</p>
+          </div>
+          <div class="status-cluster">
+            <span class="status-pill online" id="networkStatus">資料連線中</span>
+            <span class="status-pill" id="refreshStatus">每 1 分鐘更新</span>
+          </div>
+        </header>
 
-          <section class="search-strip" aria-label="路線搜尋">
-            <label class="search-box">
-              <span>搜尋</span>
-              <input id="globalSearch" autocomplete="off" placeholder="輸入 1、101、旺角、觀塘、小巴 56K...">
-            </label>
-            <select id="operatorFilter" aria-label="交通類型">
-              <option value="all">全部：九巴 / 城巴 / 小巴</option>
-              <option value="kmb">九巴 / 龍運</option>
-              <option value="ctb">城巴</option>
-              <option value="gmb">綠色小巴</option>
-            </select>
-            <button id="refreshCatalog" type="button">更新路線庫</button>
-          </section>
+        <nav class="mode-grid" aria-label="交通模式">
+          <button class="mode-card active bus" type="button" data-mode="bus">
+            <span>巴士</span>
+            <strong>九巴 / 龍運 / 城巴</strong>
+            <small>全港路線、站點、ETA</small>
+          </button>
+          <button class="mode-card minibus" type="button" data-mode="minibus">
+            <span>小巴</span>
+            <strong>綠色小巴</strong>
+            <small>路線、方向、班次資訊</small>
+          </button>
+          <button class="mode-card taxi" type="button" data-mode="taxi">
+            <span>的士 / Uber</span>
+            <strong>定位叫車</strong>
+            <small>上車點、Uber、電召的士</small>
+          </button>
+        </nav>
 
-          <section class="hero-grid">
-            <article class="departure-board">
-              <div class="board-toolbar">
-                <div>
-                  <p class="section-label">搜尋結果 / 實時班次</p>
-                  <strong id="directionLabel">未選路線</strong>
-                </div>
-                <select id="displayMode" aria-label="顯示模式">
-                  <option value="all">所有方向</option>
-                  <option value="outbound">只顯示去程</option>
-                  <option value="inbound">只顯示回程</option>
-                  <option value="favourites">公司常用路線</option>
-                </select>
+        <section class="search-strip" aria-label="搜尋">
+          <label class="search-box">
+            <span id="searchLabel">搜尋巴士路線</span>
+            <input id="globalSearch" autocomplete="off" placeholder="輸入 270A、101、尖沙咀、觀塘...">
+          </label>
+          <select id="operatorFilter" aria-label="營辦商">
+            <option value="all">全部巴士</option>
+            <option value="kmb">九巴 / 龍運</option>
+            <option value="ctb">城巴</option>
+          </select>
+          <button id="refreshCatalog" type="button">更新資料</button>
+        </section>
+
+        <section class="content-grid">
+          <article class="main-panel">
+            <div class="panel-toolbar">
+              <div>
+                <p class="section-label" id="mainSectionLabel">巴士搜尋</p>
+                <strong id="directionLabel">請先輸入路線</strong>
               </div>
-              <div class="route-list" id="routeList" aria-live="polite"></div>
+              <select id="displayMode" aria-label="顯示方向">
+                <option value="all">所有方向</option>
+                <option value="outbound">只顯示去程</option>
+                <option value="inbound">只顯示回程</option>
+                <option value="favourites">常用路線</option>
+              </select>
+            </div>
+            <div class="route-list" id="routeList" aria-live="polite"></div>
+          </article>
+
+          <aside class="side-stack">
+            <article class="nearby-panel">
+              <p class="section-label" id="sideSectionLabel">附近站點</p>
+              <div id="nearbyStops">
+                <p class="hint">先搜尋並選擇巴士路線；定位後會優先顯示最近的站。</p>
+              </div>
             </article>
 
-            <aside class="side-stack">
-              <article class="weather-panel">
-                <div>
-                  <p class="section-label">天氣及警告</p>
-                  <h2 id="weatherTemp">--°C</h2>
-                  <p id="weatherText">連接天文台中</p>
-                </div>
-                <div class="weather-meta">
-                  <span id="humidityText">濕度 --%</span>
-                  <span id="warningText">警告：--</span>
-                </div>
-              </article>
+            <article class="weather-panel">
+              <div>
+                <p class="section-label">天氣及警告</p>
+                <h2 id="weatherTemp">--°C</h2>
+                <p id="weatherText">連接天文台中</p>
+              </div>
+              <div class="weather-meta">
+                <span id="humidityText">濕度 --%</span>
+                <span id="warningText">警告：--</span>
+              </div>
+            </article>
 
-              <article class="ride-panel">
-                <p class="section-label">叫車</p>
-                <h2>的士 / Uber</h2>
-                <p id="rideLocationText">先定位，即可用目前位置做上車點。</p>
-                <div class="ride-actions">
-                  <button id="locateRide" type="button">定位</button>
-                  <a id="openUber" class="ride-link disabled" href="https://m.uber.com/looking?pickup=my_location" target="_blank" rel="noopener">開 Uber</a>
-                  <a class="ride-link" href="tel:85227608777">電召的士</a>
-                </div>
-                <p class="fineprint" id="rideAvailability">定位後可開 Uber；即時車輛位置需要平台官方 API 或商業授權。</p>
-              </article>
+            <article class="ride-panel">
+              <p class="section-label">叫車</p>
+              <h2>的士 / Uber</h2>
+              <p id="rideLocationText">先定位，即可用目前位置做上車點。</p>
+              <div class="ride-actions">
+                <button id="locateRide" type="button">定位</button>
+                <a id="openUber" class="ride-link disabled" href="https://m.uber.com/looking?pickup=my_location" target="_blank" rel="noopener">開 Uber</a>
+                <a class="ride-link" href="tel:85227608777">電召的士</a>
+              </div>
+              <p class="fineprint" id="rideAvailability">即時車輛位置需要 Uber/的士平台官方 API 或商業授權。</p>
+            </article>
 
-              <article class="countdown-panel">
-                <p class="section-label">節日假期倒數</p>
-                <h2 id="holidayCountdown">-- 日</h2>
-                <p id="holidayName">計算下一個公眾假期</p>
-              </article>
-            </aside>
-          </section>
+            <article class="countdown-panel">
+              <p class="section-label">節日假期倒數</p>
+              <h2 id="holidayCountdown">-- 日</h2>
+              <p id="holidayName">計算下一個公眾假期</p>
+            </article>
+          </aside>
+        </section>
 
-          <footer class="display-footer">
-            <span id="clockText">--:--:--</span>
-            <span id="lastUpdated">最後更新：--</span>
-            <span>資料：DATA.GOV.HK / 九巴 / 城巴 / 天文台</span>
-          </footer>
-        </div>
+        <footer class="display-footer">
+          <span id="clockText">--:--:--</span>
+          <span id="lastUpdated">最後更新：--</span>
+          <span>資料：DATA.GOV.HK / 九巴 / 城巴 / 綠色小巴 / 天文台</span>
+        </footer>
       </section>
 
-      <aside class="control-panel" aria-label="附近站點">
+      <aside class="admin-panel">
         <div class="panel-head">
           <div>
-            <p class="eyebrow">NEARBY</p>
-            <h2>附近站點</h2>
+            <p class="eyebrow">ADMIN</p>
+            <h2>進階固定站點</h2>
           </div>
           <button class="icon-button" id="toggleSettings" type="button" aria-label="收合進階設定">⚙</button>
         </div>
 
-        <div class="nearby-body" id="nearbyStops">
-          <p class="hint">先搜尋路線，例如 270A。選擇路線後，這裡會顯示該路線站點；定位後會優先顯示最近的站。</p>
-        </div>
-
         <div class="settings-body is-collapsed" id="settingsBody">
-          <p class="section-label">進階固定站點</p>
           <label class="field">
             <span>目前站點</span>
             <select id="stopSelect"></select>
@@ -148,7 +165,7 @@
           </label>
 
           <label class="field">
-            <span>公司常用路線，以逗號分隔</span>
+            <span>常用路線，以逗號分隔</span>
             <input id="routesInput" placeholder="1, 6, 101, 970X, 56K">
           </label>
 
@@ -163,7 +180,7 @@
             <button id="demoData" type="button">示範資料</button>
           </div>
 
-          <p class="hint">一般員工只需要用上方搜尋。管理員可在這裡儲存最多十個公司附近站點，用作大堂常駐顯示。</p>
+          <p class="hint">一般使用者只需要用三個主要入口；管理員可在這裡儲存固定站點。</p>
         </div>
       </aside>
     </main>

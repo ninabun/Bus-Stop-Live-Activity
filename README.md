@@ -4,8 +4,9 @@ A company-lobby transport display for Hong Kong bus and minibus searches.
 
 ## Features
 
+- Separate Bus, Green Minibus, and Taxi/Uber modes for kiosk/display use
 - Full route search for KMB/LWB and Citybus route catalogues
-- Green minibus search placeholder and UI support
+- Green minibus route catalogue search from `data.etagmb.gov.hk`
 - Route result view: route number, operator, origin and destination
 - Stop selection view for supported bus routes
 - Nearby-stop panel that can sort selected route stops by browser location
