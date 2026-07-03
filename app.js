@@ -1,6 +1,6 @@
 const ONE_MINUTE = 60 * 1000;
 const STORAGE_KEY = "transport-live-board-settings-v3";
-const CATALOG_CACHE_KEY = "transport-live-board-catalog-v3";
+const CATALOG_CACHE_KEY = "transport-live-board-catalog-v4";
 const CATALOG_MAX_AGE = 24 * 60 * 60 * 1000;
 
 const demoStops = [
@@ -650,7 +650,10 @@ async function openRouteStops(route) {
             <strong>${escapeHtml(stop.name || stop.stopId)}</strong>
             <small>${escapeHtml(route.route)} · ${escapeHtml(route.operator)}${stop.distanceText ? ` · ${escapeHtml(stop.distanceText)}` : ""}</small>
           </span>
-          <span class="route-action">查 ETA</span>
+          <span class="eta-list">
+            <strong>查 ETA</strong>
+            <span class="lock-stop-action" data-lock-stop="${escapeHtml(stop.stopId)}">鎖定此站</span>
+          </span>
         </button>
       `)
       .join("");
@@ -669,9 +672,14 @@ async function openRouteStops(route) {
 
 async function showRouteStopEta(route, stop) {
   elements.routeList.innerHTML = emptyRow("更新 ETA 中", `${route.route} · ${stop.name}`);
-  const rows = route.operatorKey === "kmb"
-    ? await fetchKmbEta(stop.stopId, route.route)
-    : await fetchCitybusEta(stop.stopId, route.route);
+  let rows = [];
+  try {
+    rows = route.operatorKey === "kmb"
+      ? await fetchKmbEta(stop.stopId, route.route)
+      : await fetchCitybusEta(stop.stopId, route.route);
+  } catch {
+    rows = [];
+  }
   const enriched = rows.map((row) => ({ ...row, stopName: stop.name, origin: route.origin, destination: row.destination || route.destination }));
   latestRows = enriched.length ? enriched : [{
     route: route.route,
@@ -685,6 +693,25 @@ async function showRouteStopEta(route, stop) {
   }];
   renderRows(latestRows, `${route.route} · ${stop.name}`);
   elements.lastUpdated.textContent = `最後更新：${new Date().toLocaleTimeString("zh-HK", { hour12: false })}`;
+}
+
+function lockCurrentStop(route, stop) {
+  const lockedStop = {
+    name: `${route.route} · ${stop.name}`,
+    operator: route.operatorKey === "ctb" ? "ctb" : "kmb",
+    kmbStopId: route.operatorKey === "kmb" ? stop.stopId : "",
+    ctbStopId: route.operatorKey === "ctb" ? stop.stopId : "",
+    gmbStopId: "",
+    routes: [route.route],
+  };
+
+  settings.stops[activeStopIndex] = lockedStop;
+  saveSettings();
+  renderStopOptions();
+  fillStopForm();
+  elements.settingsBody.classList.add("is-collapsed");
+  elements.refreshStatus.textContent = `已鎖定 ${route.route} · ${stop.name}`;
+  showRouteStopEta(route, stop);
 }
 
 function emptyRow(title, body) {
@@ -835,7 +862,8 @@ async function loadCatalog(force = false) {
 function getCatalogCache() {
   try {
     const cached = JSON.parse(localStorage.getItem(CATALOG_CACHE_KEY));
-    if (cached?.routes?.length && Date.now() - cached.cachedAt < CATALOG_MAX_AGE) return cached;
+    const hasUsableBusStops = cached?.stops?.kmb?.length && cached?.routeStops?.kmb?.length;
+    if (cached?.routes?.length && hasUsableBusStops && Date.now() - cached.cachedAt < CATALOG_MAX_AGE) return cached;
   } catch {
     localStorage.removeItem(CATALOG_CACHE_KEY);
   }
@@ -934,6 +962,12 @@ function normalizeMinibusRoutes(routesByRegion) {
 async function fetchRouteStops(route) {
   let source = route.operatorKey === "kmb" ? routeStopCatalog.kmb : routeStopCatalog.ctb;
 
+  if (route.operatorKey === "kmb" && !source.length) {
+    const payload = await fetchJson("https://data.etabus.gov.hk/v1/transport/kmb/route-stop");
+    routeStopCatalog.kmb = payload.data || [];
+    source = routeStopCatalog.kmb;
+  }
+
   if (route.operatorKey === "ctb") {
     const payload = await fetchJson(`https://rt.data.gov.hk/v2/transport/citybus/route-stop/CTB/${encodeURIComponent(route.route)}/${encodeURIComponent(route.bound)}`);
     source = payload.data || [];
@@ -1011,8 +1045,10 @@ function distanceInMeters(lat1, lon1, lat2, lon2) {
 
 function routeStopDirectionMatches(item, route) {
   if (route.operatorKey === "kmb") {
-    return String(item.bound || "").toUpperCase() === String(route.bound || "").toUpperCase()
-      && String(item.service_type || "1") === String(route.serviceType || "1");
+    const itemBound = String(item.bound || "").toUpperCase();
+    const routeBound = String(route.bound || "").toUpperCase();
+    const sameDirection = itemBound === routeBound || inferDirection(itemBound) === route.direction;
+    return sameDirection && String(item.service_type || "1") === String(route.serviceType || "1");
   }
   return inferDirection(item.dir || route.bound) === route.direction;
 }
@@ -1185,7 +1221,7 @@ function wireEvents() {
   });
 
   elements.routeList.addEventListener("click", async (event) => {
-    const target = event.target.closest("[data-result-index], [data-minibus-index], [data-stop-id], [data-gmb-stop-id], [data-nearby-route], [data-action]");
+    const target = event.target.closest("[data-result-index], [data-minibus-index], [data-stop-id], [data-lock-stop], [data-gmb-stop-id], [data-nearby-route], [data-action]");
     if (!target) return;
 
     if (target.dataset.action === "nearby-bus") {
@@ -1214,6 +1250,14 @@ function wireEvents() {
     if (target.dataset.stopId != null) {
       const stop = selectedRouteStops.find((item) => item.stopId === target.dataset.stopId);
       if (selectedRoute && stop) await showRouteStopEta(selectedRoute, stop);
+      return;
+    }
+
+    if (target.dataset.lockStop != null) {
+      const stop = selectedRouteStops.find((item) => item.stopId === target.dataset.lockStop);
+      if (selectedRoute && stop) {
+        lockCurrentStop(selectedRoute, stop);
+      }
       return;
     }
 

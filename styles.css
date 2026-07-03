@@ -400,6 +400,18 @@ button:active {
   font-size: 1.4rem;
 }
 
+.lock-stop-action {
+  color: var(--hot);
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+}
+
+.lock-stop-action:hover {
+  text-decoration: underline;
+}
+
 .stop-seq {
   display: grid;
   place-items: center;
