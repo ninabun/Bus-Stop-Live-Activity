@@ -1,6 +1,7 @@
 const ONE_MINUTE = 60 * 1000;
 const STORAGE_KEY = "transport-live-board-settings-v3";
 const CATALOG_CACHE_KEY = "transport-live-board-catalog-v4";
+const MINIBUS_STOP_CACHE_KEY = "transport-live-board-minibus-stops-v1";
 const CATALOG_MAX_AGE = 24 * 60 * 60 * 1000;
 
 const demoStops = [
@@ -102,6 +103,8 @@ let selectedRoute = null;
 let selectedRouteStops = [];
 let currentRideLocation = null;
 let activeMode = "bus";
+let minibusStopIndex = [];
+let currentNearbyMinibusResults = [];
 
 function loadSettings() {
   try {
@@ -279,10 +282,7 @@ function renderMinibusResults(query = "") {
       return searchText.includes(normalizedQuery);
     });
   } else {
-    elements.activeStopName.textContent = "綠色小巴搜尋";
-    elements.directionLabel.textContent = "請先輸入小巴路線";
-    elements.boardSubtitle.textContent = "小巴已獨立成一區；輸入 56K、1、58 或地區代碼搜尋。";
-    elements.routeList.innerHTML = emptyRow("請先搜尋小巴", "例如 56K、1、58。");
+    renderNearbyMinibusRoutes();
     return;
   }
 
@@ -550,6 +550,163 @@ function renderNearbyBusRoutes() {
       }
     });
   });
+}
+
+async function renderNearbyMinibusRoutes() {
+  selectedRoute = null;
+  selectedRouteStops = [];
+
+  if (!currentRideLocation) {
+    elements.activeStopName.textContent = "附近綠色小巴";
+    elements.directionLabel.textContent = "請先定位";
+    elements.boardSubtitle.textContent = "按 GPS 後會列出你附近的小巴站及路線；亦可直接輸入小巴號碼搜尋。";
+    elements.routeList.innerHTML = `
+      <button class="route-result minibus" type="button" data-action="nearby-minibus">
+        <span class="route-no">GPS</span>
+        <span class="route-dest">
+          <strong>定位附近小巴</strong>
+          <span>定位後自動搜尋附近綠色小巴站，再點路線查 ETA。</span>
+        </span>
+        <span class="eta-list">
+          <strong>第一步</strong>
+          <span>定位</span>
+        </span>
+      </button>
+    `;
+    renderNearbyStops([], "定位後會顯示你附近的綠色小巴站。");
+    return;
+  }
+
+  elements.activeStopName.textContent = "附近綠色小巴";
+  elements.directionLabel.textContent = "正在搜尋";
+  elements.boardSubtitle.textContent = "正在讀取綠色小巴站點，第一次使用可能需要較長時間。";
+  elements.routeList.innerHTML = emptyRow("建立小巴附近索引", "正在按你的位置搜尋附近小巴站及路線。");
+
+  const stops = await getNearestMinibusStops(80);
+  currentNearbyMinibusResults = stops;
+  renderNearbyStops(stops, "已按目前位置排序，顯示最近綠色小巴站。");
+
+  elements.activeStopName.textContent = "附近綠色小巴";
+  elements.directionLabel.textContent = `${stops.length} 個附近小巴站 / 路線`;
+  elements.boardSubtitle.textContent = "點選小巴站後，會顯示該站該路線的 ETA。";
+
+  if (!stops.length) {
+    elements.routeList.innerHTML = emptyRow("附近暫無小巴資料", "請確認已允許定位，或直接輸入小巴路線搜尋。");
+    return;
+  }
+
+  elements.routeList.innerHTML = stops.slice(0, 60).map((item, index) => `
+    <button class="route-result minibus" type="button" data-nearby-gmb-index="${index}">
+      <span class="route-no">${escapeHtml(item.route)}</span>
+      <span class="route-result-main">
+        <strong>${escapeHtml(item.destination || item.stopName)}</strong>
+        <small>最近站：${escapeHtml(item.stopName)}${item.distanceText ? ` · ${escapeHtml(item.distanceText)}` : ""}</small>
+      </span>
+      <span class="eta-list">
+        <strong>查 ETA</strong>
+        <span>${escapeHtml(item.origin || "綠色小巴")}</span>
+      </span>
+    </button>
+  `).join("");
+}
+
+async function getNearestMinibusStops(limit = 60) {
+  if (!currentRideLocation) return [];
+  const index = await buildMinibusStopIndex();
+  const seen = new Set();
+  return index
+    .filter((stop) => stop.latitude != null && stop.longitude != null)
+    .map((stop) => {
+      const distance = distanceInMeters(currentRideLocation.latitude, currentRideLocation.longitude, stop.latitude, stop.longitude);
+      return {
+        ...stop,
+        distance,
+        distanceText: distance < 1000 ? `${Math.round(distance)} 米` : `${(distance / 1000).toFixed(1)} 公里`,
+      };
+    })
+    .sort((a, b) => a.distance - b.distance)
+    .filter((stop) => {
+      const key = `${stop.routeId}-${stop.routeSeq}-${stop.stopId}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .slice(0, limit);
+}
+
+async function buildMinibusStopIndex() {
+  if (minibusStopIndex.length) return minibusStopIndex;
+  const cached = getMinibusStopCache();
+  if (cached.length) {
+    minibusStopIndex = cached;
+    return minibusStopIndex;
+  }
+
+  const routes = minibusCatalog.length ? minibusCatalog : fallbackCatalog.filter((route) => route.operatorKey === "gmb");
+  const rows = [];
+  const seen = new Set();
+  let cursor = 0;
+
+  async function worker() {
+    while (cursor < routes.length) {
+      const route = routes[cursor];
+      cursor += 1;
+      try {
+        const payload = await fetchJson(`https://data.etagmb.gov.hk/route/${encodeURIComponent(route.region)}/${encodeURIComponent(route.route)}`);
+        for (const variant of payload.data || []) {
+          for (const direction of variant.directions || []) {
+            const stopPayload = await fetchJson(`https://data.etagmb.gov.hk/route-stop/${encodeURIComponent(variant.route_id)}/${encodeURIComponent(direction.route_seq)}`);
+            for (const stop of stopPayload.data?.route_stops || []) {
+              const normalized = normalizeMinibusStop(stop, variant, direction, route);
+              const key = `${normalized.routeId}-${normalized.routeSeq}-${normalized.stopId}-${normalized.stopSeq}`;
+              if (seen.has(key) || normalized.latitude == null || normalized.longitude == null) continue;
+              seen.add(key);
+              rows.push(normalized);
+            }
+          }
+        }
+      } catch {
+        // Skip routes that are temporarily unavailable from the public API.
+      }
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(6, routes.length) }, worker));
+  minibusStopIndex = rows;
+  if (rows.length) {
+    localStorage.setItem(MINIBUS_STOP_CACHE_KEY, JSON.stringify({ cachedAt: Date.now(), stops: rows }));
+  }
+  return minibusStopIndex;
+}
+
+function getMinibusStopCache() {
+  try {
+    const cached = JSON.parse(localStorage.getItem(MINIBUS_STOP_CACHE_KEY));
+    if (cached?.stops?.length && Date.now() - cached.cachedAt < CATALOG_MAX_AGE * 7) return cached.stops;
+  } catch {
+    localStorage.removeItem(MINIBUS_STOP_CACHE_KEY);
+  }
+  return [];
+}
+
+function normalizeMinibusStop(stop, variant, direction, route) {
+  const latitude = Number(stop.lat || stop.latitude || stop.stop_lat);
+  const longitude = Number(stop.long || stop.lng || stop.longitude || stop.stop_lon);
+  return {
+    operatorKey: "gmb",
+    route: variant.route_code || route.route,
+    region: variant.region || route.region,
+    routeId: Number(variant.route_id),
+    routeSeq: Number(direction.route_seq),
+    stopId: Number(stop.stop_id),
+    stopSeq: Number(stop.stop_seq),
+    stopName: stop.name_tc || stop.name_en || String(stop.stop_id),
+    name: stop.name_tc || stop.name_en || String(stop.stop_id),
+    origin: direction.orig_tc || direction.orig_en || "",
+    destination: direction.dest_tc || direction.dest_en || "",
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+  };
 }
 
 function getNearestStops(kind, limit = 12) {
@@ -1027,6 +1184,20 @@ function renderNearbyStops(stops, message) {
 
   [...elements.nearbyStops.querySelectorAll("[data-nearby-stop-id]")].forEach((button) => {
     button.addEventListener("click", async () => {
+      if (activeMode === "minibus") {
+        const item = currentNearbyMinibusResults.find((stop) => String(stop.stopId) === button.dataset.nearbyStopId);
+        if (item) {
+          await showMinibusEta({
+            routeId: item.routeId,
+            routeSeq: item.routeSeq,
+            stopId: item.stopId,
+            stopSeq: item.stopSeq,
+            stopName: item.stopName,
+            route: item.route,
+          });
+        }
+        return;
+      }
       const stop = selectedRouteStops.find((item) => item.stopId === button.dataset.nearbyStopId);
       if (selectedRoute && stop) await showRouteStopEta(selectedRoute, stop);
     });
@@ -1136,7 +1307,7 @@ function locateForRide() {
       } else if (activeMode === "bus" && !selectedRoute) {
         renderNearbyBusRoutes();
       } else if (activeMode === "minibus") {
-        renderNearbyStops([], "綠色小巴公開資料暫未提供可用站點座標；可先搜尋小巴路線查看方向和班次。");
+        renderNearbyMinibusRoutes();
       }
       if (selectedRoute) {
         openRouteStops(selectedRoute);
@@ -1221,11 +1392,17 @@ function wireEvents() {
   });
 
   elements.routeList.addEventListener("click", async (event) => {
-    const target = event.target.closest("[data-result-index], [data-minibus-index], [data-stop-id], [data-lock-stop], [data-gmb-stop-id], [data-nearby-route], [data-action]");
+    const target = event.target.closest("[data-result-index], [data-minibus-index], [data-stop-id], [data-lock-stop], [data-gmb-stop-id], [data-nearby-route], [data-nearby-gmb-index], [data-action]");
     if (!target) return;
 
     if (target.dataset.action === "nearby-bus") {
       if (currentRideLocation) renderNearbyBusRoutes();
+      else locateForRide();
+      return;
+    }
+
+    if (target.dataset.action === "nearby-minibus") {
+      if (currentRideLocation) renderNearbyMinibusRoutes();
       else locateForRide();
       return;
     }
@@ -1266,6 +1443,21 @@ function wireEvents() {
       const stop = selectedRouteStops.find((item) => item.stopId === target.dataset.nearbyStop)
         || getNearestStops("kmb", 24).find((item) => item.stopId === target.dataset.nearbyStop);
       if (route && stop) await showRouteStopEta(route, stop);
+      return;
+    }
+
+    if (target.dataset.nearbyGmbIndex != null) {
+      const item = currentNearbyMinibusResults[Number(target.dataset.nearbyGmbIndex)];
+      if (item) {
+        await showMinibusEta({
+          routeId: item.routeId,
+          routeSeq: item.routeSeq,
+          stopId: item.stopId,
+          stopSeq: item.stopSeq,
+          stopName: item.stopName,
+          route: item.route,
+        });
+      }
       return;
     }
 
