@@ -1,19 +1,19 @@
 :root {
-  --bg: #eaf7ff;
-  --panel: rgba(255, 255, 255, 0.72);
-  --panel-solid: #e8f3ff;
-  --line: rgba(35, 74, 130, 0.18);
-  --ink: #12223a;
-  --muted: #5f738b;
-  --bus: #00a7ff;
-  --bus-deep: #006dff;
-  --minibus: #16d884;
-  --minibus-deep: #009b68;
-  --taxi: #ffd13d;
-  --taxi-deep: #ff9f1c;
-  --hot: #ff4f8b;
-  --violet: #8a5cff;
-  --shadow: 0 28px 90px rgba(39, 72, 126, 0.25);
+  --bg: #151a4a;
+  --panel: rgba(240, 247, 255, 0.76);
+  --panel-solid: #eff6ff;
+  --line: rgba(59, 92, 190, 0.22);
+  --ink: #101736;
+  --muted: #66718d;
+  --bus: #00c8ff;
+  --bus-deep: #4d55ff;
+  --minibus: #21f09a;
+  --minibus-deep: #00a875;
+  --taxi: #ffe45d;
+  --taxi-deep: #ff8f24;
+  --hot: #ff3fa4;
+  --violet: #9b5cff;
+  --shadow: 0 28px 90px rgba(54, 42, 142, 0.24);
   font-family: "Segoe UI", "Microsoft JhengHei", "PingFang TC", sans-serif;
 }
 
@@ -26,10 +26,10 @@ body {
   min-height: 100vh;
   color: var(--ink);
   background:
-    radial-gradient(circle at 12% 14%, rgba(0, 167, 255, 0.38), transparent 28%),
-    radial-gradient(circle at 84% 10%, rgba(255, 209, 61, 0.36), transparent 26%),
-    radial-gradient(circle at 78% 72%, rgba(22, 216, 132, 0.28), transparent 32%),
-    linear-gradient(135deg, #eef9ff 0%, #dcecff 42%, #f8efff 100%);
+    radial-gradient(circle at 12% 14%, rgba(0, 200, 255, 0.58), transparent 30%),
+    radial-gradient(circle at 86% 8%, rgba(255, 63, 164, 0.38), transparent 28%),
+    radial-gradient(circle at 78% 74%, rgba(33, 240, 154, 0.38), transparent 34%),
+    linear-gradient(135deg, #dff8ff 0%, #d9ddff 42%, #f6e7ff 100%);
 }
 
 button,
@@ -414,7 +414,7 @@ button:active {
 
 .side-stack {
   display: grid;
-  grid-template-rows: minmax(150px, 1fr) minmax(150px, 0.9fr) minmax(180px, 1.05fr) minmax(120px, 0.7fr);
+  grid-template-rows: minmax(190px, 1.15fr) minmax(170px, 0.95fr) minmax(130px, 0.72fr);
   gap: 12px;
   min-height: 0;
 }

@@ -96,6 +96,8 @@ let minibusCatalog = fallbackCatalog.filter((route) => route.operatorKey === "gm
 let stopCatalog = { kmb: new Map(), ctb: new Map() };
 let routeStopCatalog = { kmb: [], ctb: [] };
 let routeLookup = new Map();
+let currentRouteResults = [];
+let currentMinibusResults = [];
 let selectedRoute = null;
 let selectedRouteStops = [];
 let currentRideLocation = null;
@@ -241,8 +243,9 @@ function renderRouteResults(query = "") {
     return;
   }
 
+  currentRouteResults = results.slice(0, 80);
   elements.routeList.innerHTML = results
-    .slice(0, 60)
+    .slice(0, 80)
     .map((route, index) => `
       <button class="route-result ${route.operatorKey === "gmb" ? "minibus" : ""}" type="button" data-result-index="${index}">
         <span class="route-no">${escapeHtml(route.route)}</span>
@@ -292,6 +295,7 @@ function renderMinibusResults(query = "") {
     return;
   }
 
+  currentMinibusResults = results.slice(0, 80);
   elements.routeList.innerHTML = results
     .slice(0, 80)
     .map((route, index) => `
@@ -315,6 +319,7 @@ function renderMinibusResults(query = "") {
 }
 
 async function openMinibusRoute(route) {
+  selectedRoute = route;
   elements.activeStopName.textContent = `綠色小巴 ${route.route}`;
   elements.directionLabel.textContent = route.regionLabel || "綠色小巴";
   elements.boardSubtitle.textContent = "顯示綠色小巴方向、起點、終點及班次資訊。";
@@ -425,14 +430,14 @@ function renderTaxiPanel() {
       <span class="route-no">GPS</span>
       <span class="route-dest">
         <strong>定位目前位置</strong>
-        <span>${escapeHtml(elements.rideLocationText.textContent || "按定位後建立上車點")}</span>
+        <span>${escapeHtml(getRideLocationText())}</span>
       </span>
       <span class="eta-list">
         <strong>上車點</strong>
         <span>Uber / 的士</span>
       </span>
     </button>
-    <a class="route-result" href="${escapeHtml(elements.openUber.href)}" target="_blank" rel="noopener">
+    <a class="route-result" href="${escapeHtml(getUberUrl())}" target="_blank" rel="noopener">
       <span class="route-no">UBER</span>
       <span class="route-dest">
         <strong>開啟 Uber</strong>
@@ -457,6 +462,22 @@ function renderTaxiPanel() {
   `;
   const gpsButton = elements.routeList.querySelector('[data-action="taxi-gps"]');
   if (gpsButton) gpsButton.addEventListener("click", locateForRide);
+}
+
+function getRideLocationText() {
+  if (!currentRideLocation) return "按定位後建立上車點；瀏覽器會要求位置權限。";
+  return `已定位：${currentRideLocation.latitude.toFixed(5)}, ${currentRideLocation.longitude.toFixed(5)}`;
+}
+
+function getUberUrl() {
+  if (!currentRideLocation) return "https://m.uber.com/looking?pickup=my_location";
+  const pickup = encodeURIComponent(JSON.stringify({
+    latitude: currentRideLocation.latitude,
+    longitude: currentRideLocation.longitude,
+    addressLine1: "目前位置",
+    addressLine2: "由全港交通資訊台提供",
+  }));
+  return `https://m.uber.com/looking?pickup=${pickup}`;
 }
 
 function renderNearbyBusRoutes() {
@@ -755,6 +776,8 @@ function groupEta(items, operator, operatorKey, fallbackRoute) {
 
 async function loadCatalog(force = false) {
   elements.refreshStatus.textContent = "載入路線庫";
+  elements.refreshCatalog.disabled = true;
+  elements.refreshCatalog.textContent = "更新中";
   elements.routeList.innerHTML = emptyRow("載入路線庫中", "請稍候，正在更新九巴及城巴路線資料。");
   const cached = getCatalogCache();
   if (!force && cached) {
@@ -762,6 +785,8 @@ async function loadCatalog(force = false) {
     setNetworkState(true, "路線庫已載入");
     elements.refreshStatus.textContent = "路線庫已載入";
     renderRouteResults(elements.globalSearch.value);
+    elements.refreshCatalog.disabled = false;
+    elements.refreshCatalog.textContent = "更新資料";
     return;
   }
 
@@ -803,6 +828,8 @@ async function loadCatalog(force = false) {
 
   renderRouteResults(elements.globalSearch.value);
   elements.refreshStatus.textContent = "每 1 分鐘更新";
+  elements.refreshCatalog.disabled = false;
+  elements.refreshCatalog.textContent = "更新資料";
 }
 
 function getCatalogCache() {
@@ -830,9 +857,17 @@ function applyCatalog(catalog) {
 }
 
 async function fetchJson(url) {
-  const response = await fetch(url, { cache: "no-store" });
-  if (!response.ok) throw new Error(`Failed to fetch ${url}`);
-  return response.json();
+  try {
+    const response = await fetch(url, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+    return response.json();
+  } catch (error) {
+    if (!url.includes("data.etagmb.gov.hk")) throw error;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+    const response = await fetch(proxyUrl, { cache: "no-store" });
+    if (!response.ok) throw new Error(`Failed to fetch ${url}`);
+    return response.json();
+  }
 }
 
 function normalizeKmbRoutes(routes) {
@@ -1044,27 +1079,22 @@ function updateHolidayCountdown() {
 
 function locateForRide() {
   if (!navigator.geolocation) {
-    elements.rideLocationText.textContent = "此瀏覽器不支援定位。";
+    setLocationStatus("此瀏覽器不支援定位。");
     return;
   }
 
-  elements.rideLocationText.textContent = "正在取得目前位置...";
+  setLocationStatus("正在取得目前位置，請允許定位權限...");
   navigator.geolocation.getCurrentPosition(
     (position) => {
       currentRideLocation = {
         latitude: position.coords.latitude,
         longitude: position.coords.longitude,
       };
-      const pickup = encodeURIComponent(JSON.stringify({
-        latitude: currentRideLocation.latitude,
-        longitude: currentRideLocation.longitude,
-        addressLine1: "目前位置",
-        addressLine2: "由公司交通顯示器提供",
-      }));
-      elements.openUber.href = `https://m.uber.com/looking?pickup=${pickup}`;
-      elements.openUber.classList.remove("disabled");
-      elements.rideLocationText.textContent = `上車點已定位：${currentRideLocation.latitude.toFixed(5)}, ${currentRideLocation.longitude.toFixed(5)}`;
-      elements.rideAvailability.textContent = "已準備叫車連結。即時車輛位置需 Uber/的士平台授權後才可顯示。";
+      setLocationStatus(`已定位：${currentRideLocation.latitude.toFixed(5)}, ${currentRideLocation.longitude.toFixed(5)}`);
+      if (elements.openUber) {
+        elements.openUber.href = getUberUrl();
+        elements.openUber.classList.remove("disabled");
+      }
       if (activeMode === "taxi") {
         renderTaxiPanel();
       } else if (activeMode === "bus" && !selectedRoute) {
@@ -1076,12 +1106,22 @@ function locateForRide() {
         openRouteStops(selectedRoute);
       }
     },
-    () => {
-      elements.rideLocationText.textContent = "未能取得位置，請允許瀏覽器定位或在 Uber 內手動選擇上車點。";
-      elements.rideAvailability.textContent = "定位被拒或暫時不可用。";
+    (error) => {
+      const reason = error.code === 1 ? "定位權限被拒" : "暫時未能取得 GPS";
+      setLocationStatus(`${reason}。請在瀏覽器允許定位，或用搜尋路線查 ETA。`);
+      if (activeMode === "taxi") renderTaxiPanel();
     },
     { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 },
   );
+}
+
+function setLocationStatus(text) {
+  elements.refreshStatus.textContent = text;
+  if (elements.rideLocationText) elements.rideLocationText.textContent = text;
+  if (elements.rideAvailability) elements.rideAvailability.textContent = text;
+  if (activeMode === "taxi") {
+    elements.boardSubtitle.textContent = text;
+  }
 }
 
 function readFormStop() {
@@ -1144,10 +1184,63 @@ function wireEvents() {
     button.addEventListener("click", () => setMode(button.dataset.mode));
   });
 
+  elements.routeList.addEventListener("click", async (event) => {
+    const target = event.target.closest("[data-result-index], [data-minibus-index], [data-stop-id], [data-gmb-stop-id], [data-nearby-route], [data-action]");
+    if (!target) return;
+
+    if (target.dataset.action === "nearby-bus") {
+      if (currentRideLocation) renderNearbyBusRoutes();
+      else locateForRide();
+      return;
+    }
+
+    if (target.dataset.action === "taxi-gps") {
+      locateForRide();
+      return;
+    }
+
+    if (target.dataset.resultIndex != null) {
+      const route = currentRouteResults[Number(target.dataset.resultIndex)];
+      if (route) openRouteStops(route);
+      return;
+    }
+
+    if (target.dataset.minibusIndex != null) {
+      const route = currentMinibusResults[Number(target.dataset.minibusIndex)];
+      if (route) openMinibusRoute(route);
+      return;
+    }
+
+    if (target.dataset.stopId != null) {
+      const stop = selectedRouteStops.find((item) => item.stopId === target.dataset.stopId);
+      if (selectedRoute && stop) await showRouteStopEta(selectedRoute, stop);
+      return;
+    }
+
+    if (target.dataset.nearbyRoute != null) {
+      const route = routeLookup.get(target.dataset.nearbyRoute);
+      const stop = selectedRouteStops.find((item) => item.stopId === target.dataset.nearbyStop)
+        || getNearestStops("kmb", 24).find((item) => item.stopId === target.dataset.nearbyStop);
+      if (route && stop) await showRouteStopEta(route, stop);
+      return;
+    }
+
+    if (target.dataset.gmbStopId != null) {
+      await showMinibusEta({
+        routeId: Number(target.dataset.gmbRouteId),
+        routeSeq: Number(target.dataset.gmbRouteSeq),
+        stopId: Number(target.dataset.gmbStopId),
+        stopSeq: Number(target.dataset.gmbStopSeq),
+        stopName: target.querySelector("strong")?.textContent || "",
+        route: selectedRoute?.route || elements.globalSearch.value || "小巴",
+      });
+    }
+  });
+
   elements.globalSearch.addEventListener("input", () => renderRouteResults(elements.globalSearch.value));
   elements.operatorFilter.addEventListener("change", () => renderRouteResults(elements.globalSearch.value));
   elements.refreshCatalog.addEventListener("click", () => loadCatalog(true));
-  elements.locateRide.addEventListener("click", locateForRide);
+  if (elements.locateRide) elements.locateRide.addEventListener("click", locateForRide);
 
   elements.stopSelect.addEventListener("change", () => {
     activeStopIndex = Number(elements.stopSelect.value);
